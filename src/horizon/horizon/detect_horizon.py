@@ -12,71 +12,78 @@ import numpy as np
 class HorizonDetector(Node):
 
     def __init__(self):
-        super().__init__('horizon_detector')
-        self.subscription = self.create_subscription(Image,'/camera/image_raw',self.camera_callback,qos_profile_sensor_data)
+        super().__init__('horizon_detector')              # Initialise node name
+        self.subscription = self.create_subscription(Image,
+                                                     '/camera/image_raw',
+                                                     self.camera_callback,
+                                                     qos_profile_sensor_data)               # Create subscriber
+        
         self.subscription  # prevent unused variable warning
-        self.publisher_ = self.create_publisher(Int32, '/horizon_level', 10)
+        self.publisher_ = self.create_publisher(Int32, '/horizon_level', 10)                # Create publisher
+        self.get_logger().info("HORIZON DETECTION INITIATED")
 
+    '''Camera callback funtion'''
     def camera_callback(self, msg):
         horizon = Int32()
         bridge = CvBridge()
-        image = bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-        edges = self.find_edges(image)
-        points1, points2 = self.detect_lines(edges)
-        vanishing_points = self.detect_vanishing_points(points1, points2)
-        horizon_point = self.ransac_average(points=vanishing_points)
+        image = bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')                          # Convert image from msg to bgr
+        edges = self.find_edges(image)                                                      # Detect edges using canny edge detection
+        points1, points2 = self.detect_lines(edges)                                         # Detect lines usign hough transform
+        vanishing_points = self.detect_vanishing_points(points1, points2)                   # detect vanishing points
+        horizon_point = self.ransac_average(points=vanishing_points)                        # Use RANSAC tondinf best horizon line
         horizon.data = int(horizon_point[1])
-        self.publisher_.publish(horizon)
-        # print(horizon_point[1])
-        # cv2.line(image, (0, horizon_point[1]), (image.shape[1] ,horizon_point[1]), (255, 0, 0), 2, cv2.LINE_AA)
-        # cv2.circle(image, horizon_point, 5, (0,0,255), -1)
-        # cv2_imshow(image)
+        if horizon_point != (0,0):
+            self.publisher_.publish(horizon)                                                # publish horizon level
 
+    '''Function to find edges using canny edge detection'''
     def find_edges(self, image):
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (3,3), 0)
-        edges = cv2.Canny(blurred, 50, 150, None, 3)
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)                          # Convert to graysacle
+        blurred = cv2.GaussianBlur(gray, (3,3), 0)                              # Apply Gaussian blur
+        edges = cv2.Canny(blurred, 50, 150, None, 3)                            # Detect edges using canny edge detection
         return edges
     
+    '''Funtion to detect lines using Hough transform'''
     def detect_lines(self, edges):
-        lines = cv2.HoughLines(edges, 1, np.pi/180, 120, None, 0, 0)
+        lines = cv2.HoughLines(edges, 1, np.pi/180, 120, None, 0, 0)            # get hough lines
         points1 = []
         points2 = []
 
-        # Draw the lines
-        if lines is not None:
-            for i in range(0, len(lines)):
+        if lines is not None:                                                   # check if no lines are detected
+            for i in range(0, len(lines)):  
                 rho = lines[i][0][0]
                 theta = lines[i][0][1]
                 a = math.cos(theta)
                 b = math.sin(theta)
                 x0 = a * rho
                 y0 = b * rho
-                pt1 = (int(x0 + 1000*(-b)), int(y0 + 1000*(a)))
-                pt2 = (int(x0 - 1000*(-b)), int(y0 - 1000*(a)))
+                pt1 = (int(x0 + 1000*(-b)), int(y0 + 1000*(a)))                 # First endpoint of line segment
+                pt2 = (int(x0 - 1000*(-b)), int(y0 - 1000*(a)))                 # Second endpoint of line segment
                 points1.append(pt1)
                 points2.append(pt2)
-
         selected_points1 = []
         selected_points2 = []
+
+        '''Loop to filter out vertical and horizontal lines'''
         for i in range(len(points1)):
             x1, y1 = points1[i]
             x2, y2 = points2[i]
-            if (x2 != x1):
-                slope = (y2 - y1)/(x2 - x1)
-                slope_in_rad = math.atan2(y2-y1, x2-x1)
-                slope_in_deg = math.degrees(slope_in_rad)
-                if (80<abs(slope_in_deg)<110) or 0<abs(slope_in_deg)<10:
+            if (x2 != x1):                                                      # Ignore if line is perpendicular
+                slope = (y2 - y1)/(x2 - x1)                                     # Caluclate sope
+                slope_in_rad = math.atan2(y2-y1, x2-x1)                         # Get angle im radians
+                slope_in_deg = math.degrees(slope_in_rad)                       # Get angle in degrees
+                if (80<abs(slope_in_deg)<110) or 0<abs(slope_in_deg)<10:        #  Check if line is either vertical or horizontal
                     continue
                 else:
-                    selected_points1.append(points1[i])
-                    selected_points2.append(points2[i])
-
+                    selected_points1.append(points1[i])               # Store selected line endpoint
+                    selected_points2.append(points2[i])               # Store selected line endpoint
         return selected_points1, selected_points2
     
+    '''Function to detect vanishing point'''
     def detect_vanishing_points(self, points1, points2):
         vanishing_points = []
         i = 0
+
+        # loops to calucalte itesection of every line
         while i<(len(points1)):
             x1 = points1[i][0]
             y1 = points1[i][1]
@@ -93,9 +100,9 @@ class HorizonDetector(Node):
                                 [y3-y4, x4-x3]])
                 b = np.array([(x2-x1)*y1 - (y2-y1)*x1, (x4-x3)*y3 - (y4-y3)*x3])
 
-                det = np.linalg.det(A)
-                if abs(det) > 0:  # You can adjust the threshold as needed
-                    pt = np.linalg.solve(A, b)
+                det = np.linalg.det(A)     # Calculate ddeterminant
+                if abs(det) > 0:  # Check if the matrix is singular
+                    pt = np.linalg.solve(A, b)           # Solve to get the intersection of line
                     x = int(pt[0])
                     y = int(pt[1])
                     vanishing_points.append((x,y))
@@ -103,30 +110,22 @@ class HorizonDetector(Node):
             i = i+1
         return vanishing_points
     
+    '''Function to apply RANSAC to set of vanishng points to eliminate outlliers'''
     def ransac_average(self, points, num_iterations=100, threshold=10.0):
         points = np.array(points)
         best_avg_point = None
         best_inliers = []
 
-        if len(points)<2:
+        if len(points)<2:                         # Check if only one vanishing point is present
             return tuple(points[0].astype(int))
 
         for _ in range(num_iterations):
-            # Randomly select two points
-            sample_indices = np.random.choice(len(points), size=2, replace=False)
+            sample_indices = np.random.choice(len(points), size=2, replace=False)             # Randomly select two points
             sample_points = points[sample_indices]
-
-            # Calculate average of the sample points
-            avg_point = np.mean(sample_points, axis=0)
-
-            # Calculate distance of all points to the average
-            distances = np.linalg.norm(points - avg_point, axis=1)
-
-            # Find inliers (points within threshold distance)
-            inliers = points[distances < threshold]
-
-            # Update best model if we found more inliers
-            if len(inliers) > len(best_inliers):
+            avg_point = np.mean(sample_points, axis=0)                                        # Calculate average of the sample points
+            distances = np.linalg.norm(points - avg_point, axis=1)                            # Calculate distance of all points to the average
+            inliers = points[distances < threshold]                                           # Find inliers (points within threshold distance)
+            if len(inliers) > len(best_inliers):                                              # Update best model if we found more inliers
                 best_avg_point = np.mean(inliers, axis=0)
                 best_inliers = inliers
         try:
@@ -139,15 +138,10 @@ class HorizonDetector(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    print('Hi from horizon.')
-
     node = HorizonDetector()
 
     rclpy.spin(node)
 
-    # Destroy the node explicitly
-    # (optional - otherwise it will be done automatically
-    # when the garbage collector destroys the node object)
     node.destroy_node()
     rclpy.shutdown()
 
