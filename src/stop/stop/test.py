@@ -5,7 +5,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import Image
 from rclpy.qos import qos_profile_sensor_data
 from cv_bridge import CvBridge
-from ultralytics import YOLO
+from ultralytics import YOLO # type: ignore
 from std_msgs.msg import Bool
 
 class MinimalSubscriber(Node):
