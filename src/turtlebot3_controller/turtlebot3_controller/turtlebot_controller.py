@@ -33,6 +33,8 @@ class TurtlebotController(Node):
     '''Camera callback funtion'''
     def camera_callback(self, msg):
         image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')                          # Convert image from msg to bgr
+        cv2.putText(image, 'Horizon', (0, self.horizon_level-10), cv2.FONT_HERSHEY_SIMPLEX, 
+                            0.8, (255, 0, 0), 2, cv2.LINE_AA) 
         cv2.line(image, (0, self.horizon_level), (image.shape[1], self.horizon_level), (255, 0, 0), 2, cv2.LINE_AA)
         ros_image = self.bridge.cv2_to_imgmsg(image, encoding="bgr8")
         self.camera_feed_publisher.publish(ros_image)

@@ -13,6 +13,8 @@ class HorizonDetector(Node):
 
     def __init__(self):
         super().__init__('horizon_detector')              # Initialise node name
+        self.horizon_point_buffer = []
+        self.horizon = Int32()
         self.subscription = self.create_subscription(Image,
                                                      '/camera/image_raw',
                                                      self.camera_callback,
@@ -24,16 +26,20 @@ class HorizonDetector(Node):
 
     '''Camera callback funtion'''
     def camera_callback(self, msg):
-        horizon = Int32()
         bridge = CvBridge()
         image = bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')                          # Convert image from msg to bgr
         edges = self.find_edges(image)                                                      # Detect edges using canny edge detection
         points1, points2 = self.detect_lines(edges)                                         # Detect lines usign hough transform
         vanishing_points = self.detect_vanishing_points(points1, points2)                   # detect vanishing points
         horizon_point = self.ransac_average(points=vanishing_points)                        # Use RANSAC tondinf best horizon line
-        horizon.data = int(horizon_point[1])
         if horizon_point != (0,0):
-            self.publisher_.publish(horizon)                                                # publish horizon level
+            if len(self.horizon_point_buffer)<=5:
+                self.horizon_point_buffer.append(horizon_point)
+            else:
+                self.horizon.data = int(self.ransac_average(points=self.horizon_point_buffer)[1])
+                # print(self.horizon.data)
+                self.publisher_.publish(self.horizon)                                                # publish horizon level
+                self.get_logger().info(f"HORIZON DTECTED AT: {self.horizon.data}", once=True)
 
     '''Function to find edges using canny edge detection'''
     def find_edges(self, image):
@@ -117,7 +123,7 @@ class HorizonDetector(Node):
         best_inliers = []
 
         if len(points)<2:                         # Check if only one vanishing point is present
-            return tuple(points[0].astype(int))
+            return (0, 0)
 
         for _ in range(num_iterations):
             sample_indices = np.random.choice(len(points), size=2, replace=False)             # Randomly select two points
