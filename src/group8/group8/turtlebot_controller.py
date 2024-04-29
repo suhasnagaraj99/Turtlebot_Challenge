@@ -7,6 +7,7 @@ from cv_bridge import CvBridge
 import cv2
 from std_msgs.msg import Int64MultiArray
 from std_msgs.msg import Bool
+from geometry_msgs.msg import Twist
 
 class TurtlebotController(Node):
 
@@ -38,13 +39,24 @@ class TurtlebotController(Node):
                                                 self.stop_callback,
                                                 qos_profile_sensor_data)
         
+        self.point_subscription = self.create_subscription(Int64MultiArray,
+                                        '/points',
+                                        self.points_callback,
+                                        qos_profile_sensor_data)
+        
+        self.robo_publisher = self.create_publisher(Twist,
+                                                    '/cmd_vel',
+                                                    10)
+        
         self.camera_subscription  # prevent unused variable warning
         self.horizon_subscription  # prevent unused variable warning
         self.stop_box=[]
         self.stop=False
         self.bridge = CvBridge()
+        self.selected_point=[]
+        self.timer = self.create_timer(0.2, self.timer_callback)
+        self.robo_msg=Twist()
 
-    '''Camera callback funtion'''
     def camera_callback(self, msg):
         image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')                          # Convert image from msg to bgr
         if len(self.stop_box)!=0:
@@ -66,6 +78,50 @@ class TurtlebotController(Node):
     def stop_callback(self, msg):
         self.stop = msg.data
 
+    def points_callback(self, msg):
+        pointsX=[]
+        pointsY=[]
+        points = msg.data
+        max_index=-1
+        for i in range(int(len(points)/2)):
+            pointsX.append(points[2*i])
+            pointsY.append(points[(2*i)+1])
+        max_y=0
+        for i, y in enumerate(pointsY):
+            if y>max_y:
+                max_y=y
+                max_index=i
+        if max_index<0:
+            self.selected_point=[]
+        else:
+            self.selected_point=[pointsX[max_index],pointsY[max_index]]
+    
+    def timer_callback(self):
+        if len(self.selected_point)>1:
+            [x , y] = self.selected_point
+            linear=0.05
+            if x>320:
+                angular=-0.1
+            elif x<320:
+                angular=0.1
+            else:
+                angular=0.0
+            if self.stop==True:
+                self.robo_msg.linear.x=0.0
+                self.robo_msg.angular.z=0.0
+            elif self.stop==False:   
+                self.robo_msg.linear.x=linear
+                self.robo_msg.angular.z=angular
+            self.robo_publisher.publish(self.robo_msg)
+        else:
+            if self.stop==True:
+                self.robo_msg.linear.x=0.0
+                self.robo_msg.angular.z=0.0
+            elif self.stop==False:   
+                self.robo_msg.linear.x=0.0
+                self.robo_msg.angular.z=0.1
+            self.robo_publisher.publish(self.robo_msg)
+        
 def main(args=None):
     rclpy.init(args=args)
 
