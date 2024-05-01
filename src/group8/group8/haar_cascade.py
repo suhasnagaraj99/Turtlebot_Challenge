@@ -15,8 +15,8 @@ class MinimalSubscriber(Node):
         self.buffer = []
         self.stop_data = cv2.CascadeClassifier('/home/suhas99/ENPM673/final_project/src/stop/stop/stop_data.xml') 
         
-        # self.subscription = self.create_subscription(Image,'/image_raw',self.camera_callback,qos_profile_sensor_data)
-        self.subscription = self.create_subscription(Image,'/camera/image_raw',self.camera_callback,qos_profile_sensor_data)
+        self.subscription = self.create_subscription(Image,'/image_raw',self.camera_callback,qos_profile_sensor_data)
+        # self.subscription = self.create_subscription(Image,'/camera/image_raw',self.camera_callback,qos_profile_sensor_data)
         self.subscription
         self.publisher_stop = self.create_publisher(Bool,'/stop',qos_profile_sensor_data)
         self.publisher_box = self.create_publisher(Int64MultiArray,'/box_stop',qos_profile_sensor_data)
@@ -40,7 +40,7 @@ class MinimalSubscriber(Node):
         while len(self.buffer) > 5:
             self.buffer.pop(0)
 
-        if self.buffer.count(True) >= 3:
+        if self.buffer.count(True) >= 4:
             for (x, y, w, h) in found:
                 x1,y1,x2,y2=x,y,x+w,y+h
                 pub_msg_box.data=[int(x1),int(y1),int(x2),int(y2)]
@@ -51,8 +51,8 @@ class MinimalSubscriber(Node):
         else:
             pub_msg_stop.data=False
             self.publisher_stop.publish(pub_msg_stop)
-        cv2.imshow('img',img)
-        cv2.waitKey(1)
+        # cv2.imshow('img',img)
+        # cv2.waitKey(1)
             
 def main(args=None):
     rclpy.init(args=args)

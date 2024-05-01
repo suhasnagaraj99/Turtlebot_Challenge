@@ -17,11 +17,11 @@ class MinimalSubscriber(Node):
         ## YOLO ##
         yolo_model_path = '/home/suhas99/ENPM673/final_project/src/stop/stop/last.pt'
         self.model = YOLO(yolo_model_path)
-        self.threshold = 0.5
+        self.threshold = 0.999
         
-        # self.subscription = self.create_subscription(Image,'/image_raw',self.camera_callback,qos_profile_sensor_data)
-        self.subscription = self.create_subscription(Image,'/camera/image_raw',self.camera_callback,qos_profile_sensor_data)
-        self.subscription
+        self.subscription = self.create_subscription(Image,'/image_raw',self.camera_callback,qos_profile_sensor_data)
+        # self.subscription = self.create_subscription(Image,'/camera/image_raw',self.camera_callback,qos_profile_sensor_data)
+        # self.subscription
         self.publisher_stop = self.create_publisher(Bool,'/stop',qos_profile_sensor_data)
         self.publisher_box = self.create_publisher(Int64MultiArray,'/box_stop',qos_profile_sensor_data)
         self._bridge = CvBridge()

@@ -15,10 +15,14 @@ class HorizonDetector(Node):
         super().__init__('horizon_detector')              # Initialise node name
         self.horizon_point_buffer = []
         self.horizon = Int32()
+        # self.subscription = self.create_subscription(Image,
+        #                                              '/camera/image_raw',
+        #                                              self.camera_callback,
+        #                                              qos_profile_sensor_data)  
         self.subscription = self.create_subscription(Image,
-                                                     '/camera/image_raw',
+                                                     '/image_raw',
                                                      self.camera_callback,
-                                                     qos_profile_sensor_data)               # Create subscriber
+                                                     qos_profile_sensor_data)  # Create subscriber
         
         self.subscription  # prevent unused variable warning
         self.publisher_ = self.create_publisher(Int32, '/horizon_level', 10)                # Create publisher

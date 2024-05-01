@@ -15,10 +15,16 @@ class TurtlebotController(Node):
         super().__init__('turtlebot_controller')              # Initialise node name
 
         self.horizon_level = 0
+        # self.camera_subscription = self.create_subscription(Image,
+        #                                              '/camera/image_raw',
+        #                                              self.camera_callback,
+        #                                              qos_profile_sensor_data)               # Create subscriber
+        
+        
         self.camera_subscription = self.create_subscription(Image,
-                                                     '/camera/image_raw',
+                                                     '/image_raw',
                                                      self.camera_callback,
-                                                     qos_profile_sensor_data)               # Create subscriber
+                                                     qos_profile_sensor_data)
         
         self.horizon_subscription = self.create_subscription(Int32,
                                                              '/horizon_level',
