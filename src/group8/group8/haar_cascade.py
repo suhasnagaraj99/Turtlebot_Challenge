@@ -2,23 +2,25 @@ import cv2
 from matplotlib import pyplot as plt 
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import Image
 from sensor_msgs.msg import CompressedImage
 from rclpy.qos import qos_profile_sensor_data
 from cv_bridge import CvBridge
 from std_msgs.msg import Bool
 from std_msgs.msg import Int64MultiArray
+import os
 
 class MinimalSubscriber(Node):
 
     def __init__(self):
         super().__init__('minimal_subscriber')
         self.buffer = []
-        self.stop_data = cv2.CascadeClassifier('/home/suhas99/ENPM673/final_project/src/stop/stop/stop_data.xml') 
-        
-        # self.subscription = self.create_subscription(Image,'/image_raw',self.camera_callback,qos_profile_sensor_data)
-        self.subscription = self.create_subscription(CompressedImage,'/image_raw/compressed',self.camera_callback,qos_profile_sensor_data)
-        # self.subscription = self.create_subscription(Image,'/camera/image_raw',self.camera_callback,qos_profile_sensor_data)
+        filename = "Turtlebot_Challenge/src/group8/group8/stop_data.xml"
+        cwd = os.getcwd()
+        print(cwd)
+        path = os.path.join(cwd,filename)
+        print(path)
+        self.stop_data = cv2.CascadeClassifier(path)         
+        self.subscription = self.create_subscription(CompressedImage,'camera/image_raw/compressed',self.camera_callback,qos_profile_sensor_data)
         self.subscription
         self.publisher_stop = self.create_publisher(Bool,'/stop',qos_profile_sensor_data)
         self.publisher_box = self.create_publisher(Int64MultiArray,'/box_stop',qos_profile_sensor_data)
@@ -54,8 +56,6 @@ class MinimalSubscriber(Node):
         else:
             pub_msg_stop.data=False
             self.publisher_stop.publish(pub_msg_stop)
-        # cv2.imshow('img',img)
-        # cv2.waitKey(1)
             
 def main(args=None):
     rclpy.init(args=args)
