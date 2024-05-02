@@ -26,6 +26,7 @@ setup(
             'detect_horizon = group8.detect_horizon:main',
             'turtlebot_controller = group8.turtlebot_controller:main',
             'paper_centroid = group8.paper_centroid:main',
+            'yolo_haar = group8.yolo_haar:main',
         ],
     },
 )

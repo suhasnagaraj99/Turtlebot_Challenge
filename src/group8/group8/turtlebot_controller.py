@@ -7,6 +7,7 @@ from cv_bridge import CvBridge
 import cv2
 from std_msgs.msg import Int64MultiArray
 from std_msgs.msg import Bool
+from sensor_msgs.msg import CompressedImage
 from geometry_msgs.msg import Twist
 
 class TurtlebotController(Node):
@@ -21,10 +22,14 @@ class TurtlebotController(Node):
         #                                              qos_profile_sensor_data)               # Create subscriber
         
         
-        self.camera_subscription = self.create_subscription(Image,
-                                                     '/image_raw',
-                                                     self.camera_callback,
-                                                     qos_profile_sensor_data)
+        # self.camera_subscription = self.create_subscription(Image,
+        #                                              '/image_raw',
+        #                                              self.camera_callback,
+        #                                              qos_profile_sensor_data)
+        self.camera_subscription = self.create_subscription(CompressedImage,
+                                                '/image_raw/compressed',
+                                                self.camera_callback,
+                                                qos_profile_sensor_data)
         
         self.horizon_subscription = self.create_subscription(Int32,
                                                              '/horizon_level',
@@ -64,7 +69,8 @@ class TurtlebotController(Node):
         self.robo_msg=Twist()
 
     def camera_callback(self, msg):
-        image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')                          # Convert image from msg to bgr
+        # image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')                          # Convert image from msg to bgr
+        image = self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding='bgr8')                          
         if len(self.stop_box)!=0:
             [x1,y1,x2,y2]=self.stop_box
             if self.stop==True:
@@ -72,6 +78,7 @@ class TurtlebotController(Node):
         cv2.putText(image, 'Horizon', (0, self.horizon_level-10), cv2.FONT_HERSHEY_SIMPLEX, 
                             0.8, (255, 0, 0), 2, cv2.LINE_AA) 
         cv2.line(image, (0, self.horizon_level), (image.shape[1], self.horizon_level), (255, 0, 0), 2, cv2.LINE_AA)
+        # ros_image = self.bridge.cv2_to_compressed_imgmsg(image)
         ros_image = self.bridge.cv2_to_imgmsg(image, encoding="bgr8")
         self.camera_feed_publisher.publish(ros_image)
 

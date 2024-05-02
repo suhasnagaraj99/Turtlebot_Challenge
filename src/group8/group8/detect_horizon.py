@@ -4,6 +4,7 @@ from rclpy.qos import qos_profile_sensor_data
 from cv_bridge import CvBridge
 import cv2
 from sensor_msgs.msg import Image
+from sensor_msgs.msg import CompressedImage
 from std_msgs.msg import Int32
 import math
 import numpy as np
@@ -19,20 +20,26 @@ class HorizonDetector(Node):
         #                                              '/camera/image_raw',
         #                                              self.camera_callback,
         #                                              qos_profile_sensor_data)  
-        self.subscription = self.create_subscription(Image,
-                                                     '/image_raw',
+        self.subscription = self.create_subscription(CompressedImage,
+                                                     '/image_raw/compressed',
                                                      self.camera_callback,
                                                      qos_profile_sensor_data)  # Create subscriber
-        
+        # self.subscription = self.create_subscription(Image,
+        #                                         '/image_raw',
+        #                                         self.camera_callback,
+        #                                         qos_profile_sensor_data)  # Create subscriber
+
         self.subscription  # prevent unused variable warning
         self.publisher_ = self.create_publisher(Int32, '/horizon_level', 10)                # Create publisher
         self.get_logger().info("HORIZON DETECTION INITIATED")
+        self.image=None
 
     '''Camera callback funtion'''
     def camera_callback(self, msg):
         bridge = CvBridge()
-        image = bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')                          # Convert image from msg to bgr
-        edges = self.find_edges(image)                                                      # Detect edges using canny edge detection
+        # image = bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')                          # Convert image from msg to bgr
+        self.image = bridge.compressed_imgmsg_to_cv2(msg, desired_encoding='bgr8')
+        edges = self.find_edges(self.image)                                                      # Detect edges using canny edge detection
         points1, points2 = self.detect_lines(edges)                                         # Detect lines usign hough transform
         vanishing_points = self.detect_vanishing_points(points1, points2)                   # detect vanishing points
         horizon_point = self.ransac_average(points=vanishing_points)                        # Use RANSAC tondinf best horizon line
@@ -43,13 +50,15 @@ class HorizonDetector(Node):
                 self.horizon.data = int(self.ransac_average(points=self.horizon_point_buffer)[1])
                 # print(self.horizon.data)
                 self.publisher_.publish(self.horizon)                                                # publish horizon level
-                self.get_logger().info(f"HORIZON DTECTED AT: {self.horizon.data}", once=True)
+                self.get_logger().info(f"HORIZON DTECTED AT: {self.horizon.data}")
 
     '''Function to find edges using canny edge detection'''
     def find_edges(self, image):
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)                          # Convert to graysacle
         blurred = cv2.GaussianBlur(gray, (3,3), 0)                              # Apply Gaussian blur
-        edges = cv2.Canny(blurred, 50, 150, None, 3)                            # Detect edges using canny edge detection
+        edges = cv2.Canny(blurred, 50, 150, None, 3)   
+        # cv2.imshow("edges",edges)
+        # cv2.waitKey(1)# Detect edges using canny edge detection
         return edges
     
     '''Funtion to detect lines using Hough transform'''
@@ -81,11 +90,14 @@ class HorizonDetector(Node):
                 slope = (y2 - y1)/(x2 - x1)                                     # Caluclate sope
                 slope_in_rad = math.atan2(y2-y1, x2-x1)                         # Get angle im radians
                 slope_in_deg = math.degrees(slope_in_rad)                       # Get angle in degrees
-                if (80<abs(slope_in_deg)<110) or 0<abs(slope_in_deg)<10:        #  Check if line is either vertical or horizontal
+                if (87<abs(slope_in_deg)<103) or 0<abs(slope_in_deg)<5:        #  Check if line is either vertical or horizontal
                     continue
                 else:
                     selected_points1.append(points1[i])               # Store selected line endpoint
                     selected_points2.append(points2[i])               # Store selected line endpoint
+                    # cv2.line(self.image,points1[i],points2[i],(0,0,255),2,cv2.LINE_AA)
+                    # cv2.imshow("I",self.image)
+                    # cv2.waitKey(1)
         return selected_points1, selected_points2
     
     '''Function to detect vanishing point'''
