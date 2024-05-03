@@ -100,7 +100,7 @@ class TurtlebotController(Node):
     def timer_callback(self):
         if len(self.selected_point)>1:
             [x , y] = self.selected_point
-            linear=0.05
+            linear=0.1
             # if x>320:
             #     angular=-0.1
             # elif x<320:
@@ -110,8 +110,8 @@ class TurtlebotController(Node):
             error = 320-x
             angular = 0.01*error
             if angular>0.1:
-                angular = 0.1
-            elif angular<-0.1:
+                angular = 0.15
+            elif angular<-0.15:
                 angular = -0.1
             if self.stop==True:
                 self.robo_msg.linear.x=0.0
