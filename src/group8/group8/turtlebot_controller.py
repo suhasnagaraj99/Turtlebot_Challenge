@@ -16,18 +16,8 @@ class TurtlebotController(Node):
         super().__init__('turtlebot_controller')              # Initialise node name
 
         self.horizon_level = 0
-        # self.camera_subscription = self.create_subscription(Image,
-        #                                              '/camera/image_raw',
-        #                                              self.camera_callback,
-        #                                              qos_profile_sensor_data)               # Create subscriber
-        
-        
-        # self.camera_subscription = self.create_subscription(Image,
-        #                                              '/image_raw',
-        #                                              self.camera_callback,
-        #                                              qos_profile_sensor_data)
         self.camera_subscription = self.create_subscription(CompressedImage,
-                                                '/image_raw/compressed',
+                                                '/camera/image_raw/compressed',
                                                 self.camera_callback,
                                                 qos_profile_sensor_data)
         
@@ -69,7 +59,6 @@ class TurtlebotController(Node):
         self.robo_msg=Twist()
 
     def camera_callback(self, msg):
-        # image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')                          # Convert image from msg to bgr
         image = self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding='bgr8')                          
         if len(self.stop_box)!=0:
             [x1,y1,x2,y2]=self.stop_box
@@ -78,7 +67,6 @@ class TurtlebotController(Node):
         cv2.putText(image, 'Horizon', (0, self.horizon_level-10), cv2.FONT_HERSHEY_SIMPLEX, 
                             0.8, (255, 0, 0), 2, cv2.LINE_AA) 
         cv2.line(image, (0, self.horizon_level), (image.shape[1], self.horizon_level), (255, 0, 0), 2, cv2.LINE_AA)
-        # ros_image = self.bridge.cv2_to_compressed_imgmsg(image)
         ros_image = self.bridge.cv2_to_imgmsg(image, encoding="bgr8")
         self.camera_feed_publisher.publish(ros_image)
 
@@ -113,12 +101,18 @@ class TurtlebotController(Node):
         if len(self.selected_point)>1:
             [x , y] = self.selected_point
             linear=0.05
-            if x>320:
-                angular=-0.1
-            elif x<320:
-                angular=0.1
-            else:
-                angular=0.0
+            # if x>320:
+            #     angular=-0.1
+            # elif x<320:
+            #     angular=0.1
+            # else:
+            #     angular=0.0
+            error = 320-x
+            angular = 0.01*error
+            if angular>0.1:
+                angular = 0.1
+            elif angular<-0.1:
+                angular = -0.1
             if self.stop==True:
                 self.robo_msg.linear.x=0.0
                 self.robo_msg.angular.z=0.0

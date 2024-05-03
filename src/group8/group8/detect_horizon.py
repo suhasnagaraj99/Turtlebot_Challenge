@@ -16,28 +16,19 @@ class HorizonDetector(Node):
         super().__init__('horizon_detector')              # Initialise node name
         self.horizon_point_buffer = []
         self.horizon = Int32()
-        # self.subscription = self.create_subscription(Image,
-        #                                              '/camera/image_raw',
-        #                                              self.camera_callback,
-        #                                              qos_profile_sensor_data)  
         self.subscription = self.create_subscription(CompressedImage,
-                                                     '/image_raw/compressed',
+                                                     '/camera/image_raw/compressed',
                                                      self.camera_callback,
-                                                     qos_profile_sensor_data)  # Create subscriber
-        # self.subscription = self.create_subscription(Image,
-        #                                         '/image_raw',
-        #                                         self.camera_callback,
-        #                                         qos_profile_sensor_data)  # Create subscriber
+                                                     qos_profile_sensor_data)
 
         self.subscription  # prevent unused variable warning
         self.publisher_ = self.create_publisher(Int32, '/horizon_level', 10)                # Create publisher
         self.get_logger().info("HORIZON DETECTION INITIATED")
         self.image=None
 
-    '''Camera callback funtion'''
+    '''Camera callback function'''
     def camera_callback(self, msg):
         bridge = CvBridge()
-        # image = bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')                          # Convert image from msg to bgr
         self.image = bridge.compressed_imgmsg_to_cv2(msg, desired_encoding='bgr8')
         edges = self.find_edges(self.image)                                                      # Detect edges using canny edge detection
         points1, points2 = self.detect_lines(edges)                                         # Detect lines usign hough transform
@@ -50,18 +41,16 @@ class HorizonDetector(Node):
                 self.horizon.data = int(self.ransac_average(points=self.horizon_point_buffer)[1])
                 # print(self.horizon.data)
                 self.publisher_.publish(self.horizon)                                                # publish horizon level
-                self.get_logger().info(f"HORIZON DTECTED AT: {self.horizon.data}")
+                self.get_logger().info(f"HORIZON DETECTED AT: {self.horizon.data}")
 
     '''Function to find edges using canny edge detection'''
     def find_edges(self, image):
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)                          # Convert to graysacle
         blurred = cv2.GaussianBlur(gray, (3,3), 0)                              # Apply Gaussian blur
         edges = cv2.Canny(blurred, 50, 150, None, 3)   
-        # cv2.imshow("edges",edges)
-        # cv2.waitKey(1)# Detect edges using canny edge detection
         return edges
     
-    '''Funtion to detect lines using Hough transform'''
+    '''Function to detect lines using Hough transform'''
     def detect_lines(self, edges):
         lines = cv2.HoughLines(edges, 1, np.pi/180, 120, None, 0, 0)            # get hough lines
         points1 = []
@@ -105,7 +94,7 @@ class HorizonDetector(Node):
         vanishing_points = []
         i = 0
 
-        # loops to calucalte itesection of every line
+        # loops to calculate intersection of every line
         while i<(len(points1)):
             x1 = points1[i][0]
             y1 = points1[i][1]
@@ -132,7 +121,7 @@ class HorizonDetector(Node):
             i = i+1
         return vanishing_points
     
-    '''Function to apply RANSAC to set of vanishng points to eliminate outlliers'''
+    '''Function to apply RANSAC to set of vanishing points to eliminate outliers'''
     def ransac_average(self, points, num_iterations=100, threshold=10.0):
         points = np.array(points)
         best_avg_point = None
