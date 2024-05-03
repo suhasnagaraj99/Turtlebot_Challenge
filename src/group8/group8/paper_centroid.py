@@ -15,20 +15,16 @@ class MinimalSubscriber(Node):
 
     def __init__(self):
         super().__init__('minimal_subscriber')
-        
-        self.image_subscription = self.create_subscription(CompressedImage,'/image_raw/compressed',self.camera_callback,qos_profile_sensor_data) 
-        # self.image_subscription = self.create_subscription(Image,'/image_raw',self.camera_callback,qos_profile_sensor_data)           
-        # self.image_subscription = self.create_subscription(Image,'/camera/image_raw',self.camera_callback,qos_profile_sensor_data)
+        self.image_subscription = self.create_subscription(CompressedImage,'/camera/image_raw/compressed',self.camera_callback,qos_profile_sensor_data) 
         self.publisher = self.create_publisher(Image,'/count',qos_profile_sensor_data)
         self.horizon_subscription = self.create_subscription(Int32,'/horizon_level',self.horizon_callback,qos_profile_sensor_data)
         self.horizon=0
         self.points_publisher = self.create_publisher(Int64MultiArray,'/points',qos_profile_sensor_data)
         self.points_pub_msg=Int64MultiArray()
-        
+
 
     def camera_callback(self, msg):
         bridge = CvBridge()
-        # img = bridge.imgmsg_to_cv2(msg, desired_encoding="passthrough")
         img = bridge.compressed_imgmsg_to_cv2(msg, desired_encoding="passthrough")
         img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) 
         _, thresh = cv2.threshold(img_gray, 210, 255, cv2.THRESH_BINARY)
