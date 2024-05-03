@@ -101,12 +101,18 @@ class TurtlebotController(Node):
         if len(self.selected_point)>1:
             [x , y] = self.selected_point
             linear=0.05
-            if x>320:
-                angular=-0.1
-            elif x<320:
-                angular=0.1
-            else:
-                angular=0.0
+            # if x>320:
+            #     angular=-0.1
+            # elif x<320:
+            #     angular=0.1
+            # else:
+            #     angular=0.0
+            error = 320-x
+            angular = 0.01*error
+            if angular>0.1:
+                angular = 0.1
+            elif angular<-0.1:
+                angular = -0.1
             if self.stop==True:
                 self.robo_msg.linear.x=0.0
                 self.robo_msg.angular.z=0.0
