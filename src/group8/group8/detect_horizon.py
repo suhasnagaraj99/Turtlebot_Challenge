@@ -17,7 +17,7 @@ class HorizonDetector(Node):
         self.horizon_point_buffer = []
         self.horizon = Int32()
         self.subscription = self.create_subscription(CompressedImage,
-                                                     '/camera/image_raw/compressed',
+                                                     '/image_raw/compressed',
                                                      self.camera_callback,
                                                      qos_profile_sensor_data)
 

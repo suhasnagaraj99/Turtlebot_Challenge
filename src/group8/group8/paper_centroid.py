@@ -15,7 +15,7 @@ class MinimalSubscriber(Node):
 
     def __init__(self):
         super().__init__('minimal_subscriber')
-        self.image_subscription = self.create_subscription(CompressedImage,'/camera/image_raw/compressed',self.camera_callback,qos_profile_sensor_data) 
+        self.image_subscription = self.create_subscription(CompressedImage,'/image_raw/compressed',self.camera_callback,qos_profile_sensor_data) 
         self.publisher = self.create_publisher(Image,'/count',qos_profile_sensor_data)
         self.horizon_subscription = self.create_subscription(Int32,'/horizon_level',self.horizon_callback,qos_profile_sensor_data)
         self.horizon=0
@@ -27,7 +27,7 @@ class MinimalSubscriber(Node):
         bridge = CvBridge()
         img = bridge.compressed_imgmsg_to_cv2(msg, desired_encoding="passthrough")
         img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) 
-        _, thresh = cv2.threshold(img_gray, 210, 255, cv2.THRESH_BINARY)
+        _, thresh = cv2.threshold(img_gray, 200, 255, cv2.THRESH_BINARY)
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         filtered_points=[]
         if self.horizon:

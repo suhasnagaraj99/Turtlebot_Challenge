@@ -17,7 +17,7 @@ class TurtlebotController(Node):
 
         self.horizon_level = 0
         self.camera_subscription = self.create_subscription(CompressedImage,
-                                                '/camera/image_raw/compressed',
+                                                '/image_raw/compressed',
                                                 self.camera_callback,
                                                 qos_profile_sensor_data)
         
@@ -35,10 +35,14 @@ class TurtlebotController(Node):
                                                         self.stop_box_callback,
                                                         qos_profile_sensor_data)
         
-        self.stop_subscription = self.create_subscription(Bool,
-                                                '/stop',
-                                                self.stop_callback,
+        self.stop_subscription1 = self.create_subscription(Bool,
+                                                '/stop1',
+                                                self.stop_callback1,
                                                 qos_profile_sensor_data)
+        self.stop_subscription2 = self.create_subscription(Bool,
+                                        '/stop_dynamic',
+                                        self.stop_callback2,
+                                        qos_profile_sensor_data)
         
         self.point_subscription = self.create_subscription(Int64MultiArray,
                                         '/points',
@@ -50,19 +54,28 @@ class TurtlebotController(Node):
                                                     10)
         
         self.camera_subscription  # prevent unused variable warning
+        
         self.horizon_subscription  # prevent unused variable warning
+        
         self.stop_box=[]
-        self.stop=False
+        
+        self.stop1=False
+        
+        self.stop2=False
+        
         self.bridge = CvBridge()
+        
         self.selected_point=[]
+        
         self.timer = self.create_timer(0.2, self.timer_callback)
+        
         self.robo_msg=Twist()
 
     def camera_callback(self, msg):
         image = self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding='bgr8')                          
         if len(self.stop_box)!=0:
             [x1,y1,x2,y2]=self.stop_box
-            if self.stop==True:
+            if self.stop1 ==True:
                 cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
         cv2.putText(image, 'Horizon', (0, self.horizon_level-10), cv2.FONT_HERSHEY_SIMPLEX, 
                             0.8, (255, 0, 0), 2, cv2.LINE_AA) 
@@ -76,8 +89,12 @@ class TurtlebotController(Node):
     def stop_box_callback(self, msg):
         self.stop_box = msg.data
 
-    def stop_callback(self, msg):
-        self.stop = msg.data
+    def stop_callback1(self, msg):
+        self.stop1 = msg.data
+        
+    def stop_callback2(self, msg):
+        print(msg.data)
+        self.stop2 = msg.data
 
     def points_callback(self, msg):
         pointsX=[]
@@ -100,7 +117,7 @@ class TurtlebotController(Node):
     def timer_callback(self):
         if len(self.selected_point)>1:
             [x , y] = self.selected_point
-            linear=0.1
+            linear=0.05
             # if x>320:
             #     angular=-0.1
             # elif x<320:
@@ -110,21 +127,21 @@ class TurtlebotController(Node):
             error = 320-x
             angular = 0.01*error
             if angular>0.1:
-                angular = 0.15
-            elif angular<-0.15:
+                angular = 0.1
+            elif angular<-0.1:
                 angular = -0.1
-            if self.stop==True:
+            if self.stop1==True or self.stop2==True:
                 self.robo_msg.linear.x=0.0
                 self.robo_msg.angular.z=0.0
-            elif self.stop==False:   
+            elif self.stop1==False and self.stop2==False:   
                 self.robo_msg.linear.x=linear
                 self.robo_msg.angular.z=angular
             self.robo_publisher.publish(self.robo_msg)
         else:
-            if self.stop==True:
+            if self.stop1==True or self.stop2==True:
                 self.robo_msg.linear.x=0.0
                 self.robo_msg.angular.z=0.0
-            elif self.stop==False:   
+            elif self.stop1==False and self.stop2==False:    
                 self.robo_msg.linear.x=0.0
                 self.robo_msg.angular.z=0.1
             self.robo_publisher.publish(self.robo_msg)

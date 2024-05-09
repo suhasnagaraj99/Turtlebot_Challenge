@@ -16,13 +16,13 @@ class MinimalSubscriber(Node):
         super().__init__('minimal_subscriber')
         
         ## YOLO ##
-        yolo_model_path = '/home/suhas99/ENPM673/final_project/src/stop/stop/last.pt'
+        yolo_model_path = '/home/suhas99/ENPM673/new_ws/src/stop/stop/last.pt'
         self.model = YOLO(yolo_model_path)
         self.threshold = 0.65
         
         ## HAAR ##
         self.buffer = []
-        self.stop_data = cv2.CascadeClassifier('/home/suhas99/ENPM673/final_project/src/stop/stop/stop_data.xml') 
+        self.stop_data = cv2.CascadeClassifier('/home/suhas99/ENPM673/new_ws/src/stop/stop/stop_data.xml') 
         
         # self.subscription = self.create_subscription(Image,'/image_raw',self.camera_callback,qos_profile_sensor_data)
         # self.subscription = self.create_subscription(Image,'/camera/image_raw',self.camera_callback,qos_profile_sensor_data)
