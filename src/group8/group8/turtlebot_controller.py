@@ -49,21 +49,42 @@ class TurtlebotController(Node):
                                                     '/cmd_vel',
                                                     10)
         
+        self.stop_subscription2 = self.create_subscription(Bool,
+                                        '/stop_dynamic',
+                                        self.stop_callback2,
+                                        qos_profile_sensor_data)
+        
+        self.stop_box_subscription2 = self.create_subscription(Int64MultiArray,
+                                                '/box_dynamic',
+                                                self.stop_box_callback2,
+                                                qos_profile_sensor_data)
+        
         self.camera_subscription  # prevent unused variable warning
         self.horizon_subscription  # prevent unused variable warning
         self.stop_box=[]
+        self.stop_box2=[]
         self.stop=False
+        self.stop2=False
         self.bridge = CvBridge()
         self.selected_point=[]
         self.timer = self.create_timer(0.2, self.timer_callback)
         self.robo_msg=Twist()
+        self.horizon_detected = False
 
     def camera_callback(self, msg):
         image = self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding='bgr8')                          
         if len(self.stop_box)!=0:
             [x1,y1,x2,y2]=self.stop_box
             if self.stop==True:
+                cv2.putText(image, 'Stop', (int(x1), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 
+                            0.8, (0, 255, 0), 2, cv2.LINE_AA)
                 cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
+            if self.stop2==True:
+                [x3,y3,x4,y4]=self.stop_box2
+                cv2.putText(image, 'Dynamic obstacle', (int(x3), int(y3)-10), cv2.FONT_HERSHEY_SIMPLEX, 
+                            0.8, (0, 0, 255), 2, cv2.LINE_AA)
+                cv2.rectangle(image, (int(x3), int(y3)), (int(x4), int(y4)), (0, 0, 255), 2)
+                
         cv2.putText(image, 'Horizon', (0, self.horizon_level-10), cv2.FONT_HERSHEY_SIMPLEX, 
                             0.8, (255, 0, 0), 2, cv2.LINE_AA) 
         cv2.line(image, (0, self.horizon_level), (image.shape[1], self.horizon_level), (255, 0, 0), 2, cv2.LINE_AA)
@@ -71,13 +92,22 @@ class TurtlebotController(Node):
         self.camera_feed_publisher.publish(ros_image)
 
     def horizon_callback(self, msg):
-        self.horizon_level = msg.data
+        if not self.horizon_detected:
+            self.horizon_level = msg.data
+            self.horizon_detected = True
         
     def stop_box_callback(self, msg):
         self.stop_box = msg.data
+        
+    def stop_box_callback2(self, msg):
+        self.stop_box2 = msg.data
 
     def stop_callback(self, msg):
         self.stop = msg.data
+        
+    def stop_callback2(self, msg):
+        # print(msg.data)
+        self.stop2 = msg.data
 
     def points_callback(self, msg):
         pointsX=[]
@@ -100,7 +130,7 @@ class TurtlebotController(Node):
     def timer_callback(self):
         if len(self.selected_point)>1:
             [x , y] = self.selected_point
-            linear=0.1
+            linear=0.02
             # if x>320:
             #     angular=-0.1
             # elif x<320:
@@ -108,23 +138,23 @@ class TurtlebotController(Node):
             # else:
             #     angular=0.0
             error = 320-x
-            angular = 0.01*error
-            if angular>0.1:
-                angular = 0.15
-            elif angular<-0.15:
-                angular = -0.1
-            if self.stop==True:
+            angular = 0.005*error
+            if angular>0.04:
+                angular = 0.04
+            elif angular<-0.04:
+                angular = -0.04
+            if self.stop==True or self.stop2==True:
                 self.robo_msg.linear.x=0.0
                 self.robo_msg.angular.z=0.0
-            elif self.stop==False:   
+            elif self.stop==False and self.stop2==False:   
                 self.robo_msg.linear.x=linear
                 self.robo_msg.angular.z=angular
             self.robo_publisher.publish(self.robo_msg)
         else:
-            if self.stop==True:
+            if self.stop==True or self.stop2==True:
                 self.robo_msg.linear.x=0.0
                 self.robo_msg.angular.z=0.0
-            elif self.stop==False:   
+            elif self.stop==False and self.stop2==False:    
                 self.robo_msg.linear.x=0.0
                 self.robo_msg.angular.z=0.1
             self.robo_publisher.publish(self.robo_msg)
