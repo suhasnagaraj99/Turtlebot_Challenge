@@ -8,6 +8,7 @@ import numpy as np
 from sensor_msgs.msg import Image
 from std_msgs.msg import Int32
 from std_msgs.msg import Bool
+from std_msgs.msg import Int64MultiArray
 
 class MinimalSubscriber(Node):
 
@@ -23,13 +24,16 @@ class MinimalSubscriber(Node):
         # self.image_subscription = self.create_subscription(Image,'/camera/image_raw',self.camera_callback,qos_profile_sensor_data)
         # self.image_subscription = self.create_subscription(CompressedImage,'/camera/image_raw/compressed',self.camera_callback,qos_profile_sensor_data)
         self.publisher_stop = self.create_publisher(Bool,'/stop_dynamic',qos_profile_sensor_data)
+        self.publisher_box = self.create_publisher(Int64MultiArray,'/box_dynamic',qos_profile_sensor_data)
         self.horiz=260
         self.counter = 0
         self.movement_detected = False
+        self.horizon_detected = False
         
             
     def camera_callback(self, msg):
         pub_msg_stop = Bool()
+        pub_box=Int64MultiArray()
         bridge = CvBridge()
         step = 16
         threshold = 15
@@ -82,16 +86,21 @@ class MinimalSubscriber(Node):
                     
             if fast_moving_detected:
                 cv2.rectangle(img_bgr, (min_x, min_y), (max_x, max_y), (0, 0, 255), 2)
+                pub_box.data=[int(min_x),int(min_y),int(max_x),int(max_y)]
+                self.publisher_box.publish(pub_box)
                 pub_msg_stop.data=True
                 self.publisher_stop.publish(pub_msg_stop)
             else:
                 pub_msg_stop.data=False
                 self.publisher_stop.publish(pub_msg_stop)
-            cv2.imshow('flow', img_bgr)
-            cv2.waitKey(1)
+                
+            # cv2.imshow('flow', img_bgr)
+            # cv2.waitKey(1)
             
     def horizon_callback(self, msg):
-        self.horiz=msg.data
+        if not self.horizon_detected:
+            self.horiz=msg.data
+            self.horizon_detected = True
          
             
 def main(args=None):
@@ -103,7 +112,5 @@ def main(args=None):
     
     minimal_subscriber.destroy_node()
     rclpy.shutdown()
-
-
 if __name__ == '__main__':
     main()

@@ -54,15 +54,22 @@ class TurtlebotController(Node):
                                         self.stop_callback2,
                                         qos_profile_sensor_data)
         
+        self.stop_box_subscription2 = self.create_subscription(Int64MultiArray,
+                                                '/box_dynamic',
+                                                self.stop_box_callback2,
+                                                qos_profile_sensor_data)
+        
         self.camera_subscription  # prevent unused variable warning
         self.horizon_subscription  # prevent unused variable warning
         self.stop_box=[]
+        self.stop_box2=[]
         self.stop=False
         self.stop2=False
         self.bridge = CvBridge()
         self.selected_point=[]
         self.timer = self.create_timer(0.2, self.timer_callback)
         self.robo_msg=Twist()
+        self.horizon_detected = False
 
     def camera_callback(self, msg):
         image = self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding='bgr8')                          
@@ -70,8 +77,13 @@ class TurtlebotController(Node):
             [x1,y1,x2,y2]=self.stop_box
             if self.stop==True:
                 cv2.putText(image, 'Stop', (int(x1), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 
-                            0.8, (0, 255, 0), 2, cv2.LINE_AA) 
+                            0.8, (0, 255, 0), 2, cv2.LINE_AA)
                 cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
+            if self.stop2==True:
+                [x3,y3,x4,y4]=self.stop_box2
+                cv2.putText(image, 'Dynamic obstacle', (int(x3), int(y3)-10), cv2.FONT_HERSHEY_SIMPLEX, 
+                            0.8, (0, 0, 255), 2, cv2.LINE_AA)
+                cv2.rectangle(image, (int(x3), int(y3)), (int(x4), int(y4)), (0, 0, 255), 2)
                 
         cv2.putText(image, 'Horizon', (0, self.horizon_level-10), cv2.FONT_HERSHEY_SIMPLEX, 
                             0.8, (255, 0, 0), 2, cv2.LINE_AA) 
@@ -80,10 +92,15 @@ class TurtlebotController(Node):
         self.camera_feed_publisher.publish(ros_image)
 
     def horizon_callback(self, msg):
-        self.horizon_level = msg.data
+        if not self.horizon_detected:
+            self.horizon_level = msg.data
+            self.horizon_detected = True
         
     def stop_box_callback(self, msg):
         self.stop_box = msg.data
+        
+    def stop_box_callback2(self, msg):
+        self.stop_box2 = msg.data
 
     def stop_callback(self, msg):
         self.stop = msg.data
