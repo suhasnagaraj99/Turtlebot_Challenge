@@ -24,13 +24,15 @@ class MinimalSubscriber(Node):
         # self.image_subscription = self.create_subscription(CompressedImage,'/camera/image_raw/compressed',self.camera_callback,qos_profile_sensor_data)
         self.publisher_stop = self.create_publisher(Bool,'/stop_dynamic',qos_profile_sensor_data)
         self.horiz=260
+        self.counter = 0
+        self.movement_detected = False
         
             
     def camera_callback(self, msg):
         pub_msg_stop = Bool()
         bridge = CvBridge()
         step = 16
-        threshold = 25
+        threshold = 15
         # img = bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
         img = bridge.compressed_imgmsg_to_cv2(msg, desired_encoding="passthrough")
         if self.index == 0:
@@ -55,21 +57,29 @@ class MinimalSubscriber(Node):
             max_x, max_y = -float('inf'), -float('inf')
             
             for (x1, y1), (x2, y2) in lines:
+                
                 cv2.circle(img_bgr, (x1, y1), 1, (0, 255, 0), -1)
                 line_length = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+                
                 if line_length > threshold:
                     min_x = min(min_x, min(x1, x2))
                     min_y = min(min_y, min(y1, y2))
                     max_x = max(max_x, max(x1, x2))
-                    max_y = max(max_y, max(y1, y2))
-                
-                print("Max y:", max_y)
-                print(self.horiz)
+                    max_y = max(max_y, max(y1, y2))                
                     
                 if line_length > threshold and max_y>=self.horiz:
+                    self.movement_detected = True
+                else:
+                    self.movement_detected = False
+                    self.counter = 0
+                
+                if self.movement_detected == True:
+                    self.counter += 1
+                     
+                if self.counter >= 7:
+                    print("OBSTACLE OBSTACLE OBSTACLE")
                     fast_moving_detected = True
                     
-
             if fast_moving_detected:
                 cv2.rectangle(img_bgr, (min_x, min_y), (max_x, max_y), (0, 0, 255), 2)
                 pub_msg_stop.data=True
