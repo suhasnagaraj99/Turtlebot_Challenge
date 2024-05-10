@@ -24,6 +24,7 @@ class MinimalSubscriber(Node):
         # self.image_subscription = self.create_subscription(Image,'/camera/image_raw',self.camera_callback,qos_profile_sensor_data)
         # self.image_subscription = self.create_subscription(CompressedImage,'/camera/image_raw/compressed',self.camera_callback,qos_profile_sensor_data)
         self.publisher_stop = self.create_publisher(Bool,'/stop_dynamic',qos_profile_sensor_data)
+        self.publisher_obs = self.create_publisher(Bool,'/obs',qos_profile_sensor_data)
         self.publisher_box = self.create_publisher(Int64MultiArray,'/box_dynamic',qos_profile_sensor_data)
         self.horiz=260
         self.counter = 0
@@ -33,6 +34,7 @@ class MinimalSubscriber(Node):
             
     def camera_callback(self, msg):
         pub_msg_stop = Bool()
+        pub_msg_obs = Bool()
         pub_box=Int64MultiArray()
         bridge = CvBridge()
         step = 16
@@ -56,38 +58,46 @@ class MinimalSubscriber(Node):
             img_bgr = cv2.cvtColor(self.img_gray, cv2.COLOR_GRAY2BGR)
             cv2.polylines(img_bgr, lines, 0, (0, 255, 0))
 
-            fast_moving_detected = False
+            fast_moving_detected_below = False
+            obs_detected=False
             min_x, min_y = float('inf'), float('inf')
             max_x, max_y = -float('inf'), -float('inf')
-            
+            line_above_thresh=0
             for (x1, y1), (x2, y2) in lines:
                 
                 cv2.circle(img_bgr, (x1, y1), 1, (0, 255, 0), -1)
                 line_length = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
                 
                 if line_length > threshold:
+                    line_above_thresh=line_above_thresh+1
                     min_x = min(min_x, min(x1, x2))
                     min_y = min(min_y, min(y1, y2))
                     max_x = max(max_x, max(x1, x2))
                     max_y = max(max_y, max(y1, y2))                
                     
-                if line_length > threshold and max_y>=self.horiz:
-                    self.movement_detected = True
-                else:
-                    self.movement_detected = False
-                    self.counter = 0
-                
-                if self.movement_detected == True:
-                    self.counter += 1
-                     
-                if self.counter >= 7:
-                    print("OBSTACLE OBSTACLE OBSTACLE")
-                    fast_moving_detected = True
+            if min_x!=-float('inf') and min_y!=-float('inf') and max_x!=float('inf') and max_y!=float('inf') and line_above_thresh>10:
+                self.movement_detected = True
+            else:
+                self.movement_detected = False
+                self.counter = 0
+            
+            if self.movement_detected == True:
+                self.counter += 1
                     
-            if fast_moving_detected:
-                cv2.rectangle(img_bgr, (min_x, min_y), (max_x, max_y), (0, 0, 255), 2)
+            if self.counter >= 5:
+                print("OBSTACLE OBSTACLE OBSTACLE")
+                pub_msg_obs.data=True
+                self.publisher_obs.publish(pub_msg_obs)  
                 pub_box.data=[int(min_x),int(min_y),int(max_x),int(max_y)]
                 self.publisher_box.publish(pub_box)
+                cv2.rectangle(img_bgr, (min_x, min_y), (max_x, max_y), (0, 0, 255), 2)
+                if max_y>=self.horiz:
+                    fast_moving_detected_below = True
+            else:
+                pub_msg_obs.data=False
+                self.publisher_obs.publish(pub_msg_obs)    
+                        
+            if fast_moving_detected_below:
                 pub_msg_stop.data=True
                 self.publisher_stop.publish(pub_msg_stop)
             else:

@@ -35,9 +35,19 @@ class TurtlebotController(Node):
                                                         self.stop_box_callback,
                                                         qos_profile_sensor_data)
         
+        self.pts_subscription = self.create_subscription(Int64MultiArray,
+                                                '/pts_list',
+                                                self.horiz_pts_callback,
+                                                qos_profile_sensor_data)
+        
         self.stop_subscription = self.create_subscription(Bool,
                                                 '/stop',
                                                 self.stop_callback,
+                                                qos_profile_sensor_data)
+        
+        self.obs_subscription = self.create_subscription(Bool,
+                                                '/obs',
+                                                self.obs_callback,
                                                 qos_profile_sensor_data)
         
         self.point_subscription = self.create_subscription(Int64MultiArray,
@@ -70,6 +80,9 @@ class TurtlebotController(Node):
         self.timer = self.create_timer(0.2, self.timer_callback)
         self.robo_msg=Twist()
         self.horizon_detected = False
+        self.turn_index=0
+        self.pts_list=[]
+        self.obs=False
 
     def camera_callback(self, msg):
         image = self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding='bgr8')                          
@@ -79,7 +92,7 @@ class TurtlebotController(Node):
                 cv2.putText(image, 'Stop', (int(x1), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 
                             0.8, (0, 255, 0), 2, cv2.LINE_AA)
                 cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
-            if self.stop2==True:
+            if self.obs==True:
                 [x3,y3,x4,y4]=self.stop_box2
                 cv2.putText(image, 'Dynamic obstacle', (int(x3), int(y3)-10), cv2.FONT_HERSHEY_SIMPLEX, 
                             0.8, (0, 0, 255), 2, cv2.LINE_AA)
@@ -88,6 +101,12 @@ class TurtlebotController(Node):
         cv2.putText(image, 'Horizon', (0, self.horizon_level-10), cv2.FONT_HERSHEY_SIMPLEX, 
                             0.8, (255, 0, 0), 2, cv2.LINE_AA) 
         cv2.line(image, (0, self.horizon_level), (image.shape[1], self.horizon_level), (255, 0, 0), 2, cv2.LINE_AA)
+        for i in range(int(len(self.pts_list)/2)):
+            x=self.pts_list[2*i]
+            y=self.pts_list[(2*i)+1]
+            cv2.circle(image,(x,y), 5, (0,0,255), -1)
+        if len(self.selected_point)>0:
+            cv2.circle(image,(int(self.selected_point[0]),int(self.selected_point[1])), 5, (0,255,0), -1)
         ros_image = self.bridge.cv2_to_imgmsg(image, encoding="bgr8")
         self.camera_feed_publisher.publish(ros_image)
 
@@ -95,6 +114,9 @@ class TurtlebotController(Node):
         if not self.horizon_detected:
             self.horizon_level = msg.data
             self.horizon_detected = True
+            
+    def horiz_pts_callback(self,msg):
+        self.pts_list=msg.data
         
     def stop_box_callback(self, msg):
         self.stop_box = msg.data
@@ -108,6 +130,9 @@ class TurtlebotController(Node):
     def stop_callback2(self, msg):
         # print(msg.data)
         self.stop2 = msg.data
+        
+    def obs_callback(self, msg):
+        self.obs = msg.data
 
     def points_callback(self, msg):
         pointsX=[]
@@ -128,7 +153,12 @@ class TurtlebotController(Node):
             self.selected_point=[pointsX[max_index],pointsY[max_index]]
     
     def timer_callback(self):
+        if self.obs==True and self.stop2 ==True:
+            print("Dynamic object detected below horizon: Hence, stopping")
+        if self.obs==True and self.stop2 ==False:
+            print("Dynamic object detected above horizon: Hence, not stopping")
         if len(self.selected_point)>1:
+            self.turn_index=0
             [x , y] = self.selected_point
             linear=0.02
             # if x>320:
@@ -154,10 +184,25 @@ class TurtlebotController(Node):
             if self.stop==True or self.stop2==True:
                 self.robo_msg.linear.x=0.0
                 self.robo_msg.angular.z=0.0
-            elif self.stop==False and self.stop2==False:    
-                self.robo_msg.linear.x=0.0
-                self.robo_msg.angular.z=0.1
-            self.robo_publisher.publish(self.robo_msg)
+                self.robo_publisher.publish(self.robo_msg)
+            elif self.stop==False and self.stop2==False:  
+                if self.turn_index < 150:  
+                    self.robo_msg.linear.x=0.0
+                    self.robo_msg.angular.z=0.05
+                    self.robo_publisher.publish(self.robo_msg)
+                    self.turn_index=self.turn_index+1
+                elif self.turn_index>=150 and self.turn_index<450:
+                    self.robo_msg.linear.x=0.0
+                    self.robo_msg.angular.z=-0.05
+                    self.robo_publisher.publish(self.robo_msg)
+                    self.turn_index=self.turn_index+1
+                elif self.turn_index==450:
+                    self.robo_msg.linear.x=0.0
+                    self.robo_msg.angular.z=0.0
+                    print("No Path found: Goal reached")
+                    self.robo_publisher.publish(self.robo_msg)
+                    self.turn_index=self.turn_index+1
+        
         
 def main(args=None):
     rclpy.init(args=args)

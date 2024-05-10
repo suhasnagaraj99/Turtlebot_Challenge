@@ -21,6 +21,7 @@ class MinimalSubscriber(Node):
         self.horizon=0
         self.points_publisher = self.create_publisher(Int64MultiArray,'/points',qos_profile_sensor_data)
         self.points_pub_msg=Int64MultiArray()
+        self.horizon_detected = False
 
 
     def camera_callback(self, msg):
@@ -48,7 +49,9 @@ class MinimalSubscriber(Node):
         self.publisher.publish(pub_img)
         
     def horizon_callback(self,msg):
-        self.horizon = msg.data
+        if not self.horizon_detected:
+            self.horizon = msg.data
+            self.horizon_detected = True
          
             
 def main(args=None):

@@ -14,11 +14,7 @@ class MinimalSubscriber(Node):
     def __init__(self):
         super().__init__('minimal_subscriber')
         self.buffer = []
-        filename = "Turtlebot_Challenge/src/group8/group8/stop_data.xml"
-        cwd = os.getcwd()
-        print(cwd)
-        path = os.path.join(cwd,filename)
-        print(path)
+        path = '/home/suhas99/ENPM673/gaz_ws/src/group8/group8/stop_data.xml'
         self.stop_data = cv2.CascadeClassifier(path)         
         self.subscription = self.create_subscription(CompressedImage,'camera/image_raw/compressed',self.camera_callback,qos_profile_sensor_data)
         self.subscription

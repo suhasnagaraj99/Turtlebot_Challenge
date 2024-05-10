@@ -8,6 +8,7 @@ from sensor_msgs.msg import CompressedImage
 from std_msgs.msg import Int32
 import math
 import numpy as np
+from std_msgs.msg import Int64MultiArray
 
 
 class HorizonDetector(Node):
@@ -17,20 +18,22 @@ class HorizonDetector(Node):
         self.horizon_point_buffer = []
         self.horizon = Int32()
         self.subscription = self.create_subscription(CompressedImage,
-                                                     '/camera/image_raw/compressed',
+                                                     'camera/image_raw/compressed',
                                                      self.camera_callback,
                                                      qos_profile_sensor_data)
 
-        self.subscription  # prevent unused variable warning
+        self.subscription      # prevent unused variable warning
+        self.publisher_pts = self.create_publisher(Int64MultiArray,'/pts_list',qos_profile_sensor_data)
         self.publisher_ = self.create_publisher(Int32, '/horizon_level', 10)                # Create publisher
         self.get_logger().info("HORIZON DETECTION INITIATED")
         self.image=None
 
     '''Camera callback function'''
     def camera_callback(self, msg):
+        horizon_pts_msg = Int64MultiArray()
         bridge = CvBridge()
         self.image = bridge.compressed_imgmsg_to_cv2(msg, desired_encoding='bgr8')
-        edges = self.find_edges(self.image)                                                      # Detect edges using canny edge detection
+        edges = self.find_edges(self.image)                                                 # Detect edges using canny edge detection
         points1, points2 = self.detect_lines(edges)                                         # Detect lines usign hough transform
         vanishing_points = self.detect_vanishing_points(points1, points2)                   # detect vanishing points
         horizon_point = self.ransac_average(points=vanishing_points)                        # Use RANSAC tondinf best horizon line
@@ -42,6 +45,14 @@ class HorizonDetector(Node):
                 # print(self.horizon.data)
                 self.publisher_.publish(self.horizon)                                                # publish horizon level
                 self.get_logger().info(f"HORIZON DETECTED AT: {self.horizon.data}")
+                pts_list=[]
+                for (i,j) in self.horizon_point_buffer:
+                    pts_list.append(int(i))
+                    pts_list.append(int(j))
+                horizon_pts_msg.data=pts_list
+                self.publisher_pts.publish(horizon_pts_msg)
+                    
+                    
 
     '''Function to find edges using canny edge detection'''
     def find_edges(self, image):
@@ -147,6 +158,7 @@ class HorizonDetector(Node):
 
 
 def main(args=None):
+    
     rclpy.init(args=args)
 
     node = HorizonDetector()
@@ -159,4 +171,3 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
-

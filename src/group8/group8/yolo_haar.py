@@ -16,7 +16,7 @@ class MinimalSubscriber(Node):
         super().__init__('minimal_subscriber')
         
         ## YOLO ##
-        yolo_model_path = '/home/suhas99/ENPM673/final_project/src/stop/stop/last.pt'
+        yolo_model_path = '/home/suhas99/ENPM673/final_project/src/stop/stop/best.pt'
         self.model = YOLO(yolo_model_path)
         self.threshold = 0.65
         
