@@ -1,4 +1,6 @@
-# ENPM 673: Perception for Autonomus Robots
+# Turtlebot Challenge
+
+## ENPM 673: Perception for Autonomus Robots
 
 ## Instructions for running perception turtlebot3 challenge project
 
